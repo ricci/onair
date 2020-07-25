@@ -4,6 +4,7 @@ from gpiozero import LED
 from time import sleep
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json 
+import paho.mqtt.client as mqtt
 
 led = LED(17)
 led.off()
@@ -14,10 +15,12 @@ class MyHandlerForHTTP(BaseHTTPRequestHandler):
             led.on()
             self.send_response(200)
             self.end_headers()
+            mqttc.publish("onair/event", payload="on")
         elif self.path == "/off":
             led.off()
             self.send_response(200)
             self.end_headers()
+            mqttc.publish("onair/event", payload="off")
         elif self.path == "/toggle":
             led.toggle()
             self.send_response(200)
@@ -33,17 +36,12 @@ class MyHandlerForHTTP(BaseHTTPRequestHandler):
         #self.wfile.write(bytes('You have requested '+self.path+'\n', 'UTF-8'))
 
 server_address = ('', 8000)
+
+mqttc = mqtt.Client()
+mqttc.connect("10.0.0.66")
+mqttc.publish("onair/daemon", payload="start")
+
 print("About to create server")
 httpd = HTTPServer(server_address, MyHandlerForHTTP)
 print("About to serve forever")
 httpd.serve_forever()
-
-led.on()
-
-sleep(10)
-
-#while True:
-#    led.on()
-#    sleep(1)
-#    led.off()
-#    sleep(1)
