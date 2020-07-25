@@ -5,6 +5,7 @@ from time import sleep
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json 
 import paho.mqtt.client as mqtt
+import threading
 
 led = LED(17)
 led.off()
@@ -36,6 +37,12 @@ class MyHandlerForHTTP(BaseHTTPRequestHandler):
         #self.wfile.write(bytes('Hello World\n', 'UTF-8'))
         #self.wfile.write(bytes('You have requested '+self.path+'\n', 'UTF-8'))
 
+class myThread (threading.Thread):
+   def run(self):
+      print ("Starting thread")
+      httpd.serve_forever()
+      print ("Exiting thread")
+
 server_address = ('', 8000)
 
 mqttc = mqtt.Client()
@@ -45,4 +52,6 @@ mqttc.publish("onair/daemon", payload="start")
 print("About to create server")
 httpd = HTTPServer(server_address, MyHandlerForHTTP)
 print("About to serve forever")
-httpd.serve_forever()
+httpThread = myThread()
+httpThread.run()
+httpThread.join()
