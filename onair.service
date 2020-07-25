@@ -1,0 +1,6 @@
+[Unit]
+Description=OnAir service
+After=network.target
+
+[Service]
+ExecStart=/home/ricci/onair/onair.py
