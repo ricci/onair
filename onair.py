@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from gpiozero import LED
+from gpiozero import LED, Button
 from time import sleep
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json 
@@ -19,6 +19,7 @@ MQTT_OFF = "OFF"
 led = LED(17)
 led.off()
 
+button = Button(4)#,bounce_time=0.1)
 
 class MyHandlerForHTTP(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -56,6 +57,17 @@ class MQTTThread (threading.Thread):
       mqttc.loop_forever()
       print ("Exiting mqtt thread")
 
+class ButtonThread (threading.Thread):
+   def run(self):
+      print ("Starting button thread")
+      while True:
+          button.wait_for_press()
+          print("Button Pressed")
+          led.toggle()
+          mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF))
+          button.wait_for_release()
+          print("Button Released")
+      print ("Exiting button thread")
 
 server_address = ('', 8000)
 
@@ -95,5 +107,9 @@ httpThread.start()
 mqttThread = MQTTThread()
 mqttThread.start()
 
+buttonThread = ButtonThread()
+buttonThread.start()
+
 mqttThread.join()
 httpThread.join()
+buttonThread.join()
