@@ -53,15 +53,34 @@ class HTTPThread (threading.Thread):
 class MQTTThread (threading.Thread):
    def run(self):
       print ("Starting mqtt thread")
-      #httpd.serve_forever()
+      mqttc.loop_forever()
       print ("Exiting mqtt thread")
 
 
 server_address = ('', 8000)
 
 mqttc = mqtt.Client()
+
+def mqtt_on_connect(client, userdata, flags, rc):
+    print("Connected to MQTT with result code "+str(rc))
+    client.subscribe(MQTT_COMMAND)
+    print("Subscribed to " + MQTT_COMMAND)
+    client.publish(MQTT_AVAILABLE, payload=MQTT_ON)
+    print("Published availability messages")
+
+def mqtt_on_message(client, userdata, msg):
+    print("MQTT Command Received")
+    print("MQTT Command:" +msg.topic+" "+msg.payload.decode())
+    if msg.payload.decode() == MQTT_ON:
+        led.on()
+        mqttc.publish(MQTT_STATE, payload=MQTT_ON)
+    elif msg.payload.decode() == MQTT_OFF:
+        led.off()
+        mqttc.publish(MQTT_STATE, payload=MQTT_OFF)
+
+mqttc.on_connect = mqtt_on_connect
+mqttc.on_message = mqtt_on_message
 mqttc.connect("10.0.0.66")
-mqttc.publish(MQTT_AVAILABLE, payload=MQTT_ON)
 
 @atexit.register
 def mqttSignoff():
