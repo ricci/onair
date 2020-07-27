@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 
-from gpiozero import LED, Button
-from time import sleep
+"""
+onair - simple daemon to interface with onair sign
+
+Accepts inputs via http, mqtt, and button presses. Sends updates out via
+mqtt
+"""
+
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import json 
-import paho.mqtt.client as mqtt
-import threading
+import json
 import atexit
+import threading
+from gpiozero import LED, Button
+import paho.mqtt.client as mqtt
 
 MQTT_ROOT = "onair"
 MQTT_STATE = "{}/state".format(MQTT_ROOT)
@@ -22,7 +28,14 @@ led.off()
 button = Button(4)#,bounce_time=0.1)
 
 class MyHandlerForHTTP(BaseHTTPRequestHandler):
+    """
+    Handler for HTTP messages
+    """
     def do_GET(self):
+        # pylint: disable=invalid-name
+        """
+        Called when a GET request is made
+        """
         if self.path == "/on":
             led.on()
             self.send_response(200)
@@ -42,38 +55,61 @@ class MyHandlerForHTTP(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
-            json_str = json.dumps({ "led" : led.is_lit })
+            json_str = json.dumps({"led": led.is_lit})
             self.wfile.write(json_str.encode(encoding='utf_8'))
 
-class HTTPThread (threading.Thread):
-   def run(self):
-      print ("Starting http thread")
-      httpd.serve_forever()
-      print ("Exiting http thread")
+class HTTPThread(threading.Thread):
+    """
+    Thread that manages HTTP connections
+    """
+    def run(self):
+        """
+        Run the http serve funtion, never exit
+        """
+        print("Starting http thread")
+        httpd.serve_forever()
+        print("Exiting http thread")
 
-class MQTTThread (threading.Thread):
-   def run(self):
-      print ("Starting mqtt thread")
-      mqttc.loop_forever()
-      print ("Exiting mqtt thread")
+class MQTTThread(threading.Thread):
+    """
+    Thread that proccesses commands from MQTT
+    """
+    def run(self):
+        """
+        Run the mqtt event loop, never exit
+        """
+        print("Starting mqtt thread")
+        mqttc.loop_forever()
+        print("Exiting mqtt thread")
 
-class ButtonThread (threading.Thread):
-   def run(self):
-      print ("Starting button thread")
-      while True:
-          button.wait_for_press()
-          print("Button Pressed")
-          led.toggle()
-          mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF))
-          button.wait_for_release()
-          print("Button Released")
-      print ("Exiting button thread")
+class ButtonThread(threading.Thread):
+    """
+    Thread that handles button presses
+    """
+    def run(self):
+        """
+        Infinite loop waiting on button presses
+        """
+        print("Starting button thread")
+        while True:
+            button.wait_for_press()
+            print("Button Pressed")
+            led.toggle()
+            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF))
+            button.wait_for_release()
+            print("Button Released")
+        print("Exiting button thread")
 
 server_address = ('', 8000)
 
 mqttc = mqtt.Client()
 
 def mqtt_on_connect(client, userdata, flags, rc):
+    """
+    We subscribe in a callback so that if we disconnect and reconnect,
+    re-subscriptions happen properly.
+    """
+    # pylint: disable=unused-argument, invalid-name
     print("Connected to MQTT with result code "+str(rc))
     client.subscribe(MQTT_COMMAND)
     print("Subscribed to " + MQTT_COMMAND)
@@ -81,6 +117,10 @@ def mqtt_on_connect(client, userdata, flags, rc):
     print("Published availability messages")
 
 def mqtt_on_message(client, userdata, msg):
+    """
+    Handle commands coming in through MQTT
+    """
+    # pylint: disable=unused-argument
     print("MQTT Command Received")
     print("MQTT Command:" +msg.topic+" "+msg.payload.decode())
     if msg.payload.decode() == MQTT_ON:
@@ -95,7 +135,11 @@ mqttc.on_message = mqtt_on_message
 mqttc.connect("10.0.0.66")
 
 @atexit.register
-def mqttSignoff():
+def mqtt_signoff():
+    """
+    When this process dies, let home-assistant know that we're not available
+    anymore.
+    """
     mqttc.publish(MQTT_AVAILABLE, payload=MQTT_OFF)
 
 print("About to create server")
