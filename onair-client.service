@@ -1,0 +1,10 @@
+[Unit]
+Description=OnAir Client service
+
+[Service]
+ExecStart=/home/ricci/src/onair/onair-client.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target
