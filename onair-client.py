@@ -13,7 +13,6 @@ MQTT_OFF = "OFF"
 
 pulse = pulsectl.Pulse('onair-client')
 mqttc = mqtt.Client()
-mqttc.connect("10.0.0.66")
 
 def mic_on():
     global pulse
@@ -38,9 +37,13 @@ while True:
     if currentState is None or currentState != listening:
         if listening:
             print("Now listening")
+            mqttc.connect("10.0.0.66")
             mqttc.publish(MQTT_COMMAND, payload=MQTT_ON)
+            mqttc.disconnect()
         else:
             print("No longer listening")
+            mqttc.connect("10.0.0.66")
             mqttc.publish(MQTT_COMMAND, payload=MQTT_OFF)
+            mqttc.disconnect()
     currentState = listening
     pulse.event_listen()
