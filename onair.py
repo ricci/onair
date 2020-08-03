@@ -40,17 +40,17 @@ class MyHandlerForHTTP(BaseHTTPRequestHandler):
             led.on()
             self.send_response(200)
             self.end_headers()
-            mqttc.publish(MQTT_STATE, payload=MQTT_ON)
+            mqttc.publish(MQTT_STATE, payload=MQTT_ON, retain=True)
         elif self.path == "/off":
             led.off()
             self.send_response(200)
             self.end_headers()
-            mqttc.publish(MQTT_STATE, payload=MQTT_OFF)
+            mqttc.publish(MQTT_STATE, payload=MQTT_OFF, retain=True)
         elif self.path == "/toggle":
             led.toggle()
             self.send_response(200)
             self.end_headers()
-            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF))
+            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF), retain=True)
         elif self.path == "/status":
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -95,7 +95,7 @@ class ButtonThread(threading.Thread):
             button.wait_for_press()
             print("Button Pressed")
             led.toggle()
-            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF))
+            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF), retain=True)
             button.wait_for_release()
             print("Button Released")
         print("Exiting button thread")
@@ -125,10 +125,10 @@ def mqtt_on_message(client, userdata, msg):
     print("MQTT Command:" +msg.topic+" "+msg.payload.decode())
     if msg.payload.decode() == MQTT_ON:
         led.on()
-        mqttc.publish(MQTT_STATE, payload=MQTT_ON)
+        mqttc.publish(MQTT_STATE, payload=MQTT_ON, retain=True)
     elif msg.payload.decode() == MQTT_OFF:
         led.off()
-        mqttc.publish(MQTT_STATE, payload=MQTT_OFF)
+        mqttc.publish(MQTT_STATE, payload=MQTT_OFF, retain=True)
 
 mqttc.on_connect = mqtt_on_connect
 mqttc.on_message = mqtt_on_message
