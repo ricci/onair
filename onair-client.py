@@ -19,7 +19,8 @@ def mic_on():
     for e in pulse.source_output_list():
         # Not sure what this is, but it seems to always be there, so it doesn't
         # count
-        if e.name != "parec":
+        if e.name != "parec" and e.name != "Peak detect":
+            print("{} is now listening".format(e.name))
             return True
     return False
 
