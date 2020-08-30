@@ -11,8 +11,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import atexit
 import threading
-from gpiozero import LED, Button
+import RPi.GPIO as GPIO
 import paho.mqtt.client as mqtt
+import time
 
 MQTT_ROOT = "onair"
 MQTT_STATE = "{}/state".format(MQTT_ROOT)
@@ -22,40 +23,56 @@ MQTT_AVAILABLE = "{}/state/available".format(MQTT_ROOT)
 MQTT_ON = "ON"
 MQTT_OFF = "OFF"
 
-led = LED(27)
-led.off()
+LED_PIN = 27
+BUTTON_PIN = 4
 
-button = Button(4)#,bounce_time=0.1)
+GPIO.setmode(GPIO.BCM)
+
+GPIO.setup(LED_PIN, GPIO.OUT)
+GPIO.output(LED_PIN, GPIO.LOW)
+led_state = False
+
+time.sleep(1)
+
+GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 class MyHandlerForHTTP(BaseHTTPRequestHandler):
     """
     Handler for HTTP messages
     """
     def do_GET(self):
+        global led_state
         # pylint: disable=invalid-name
         """
         Called when a GET request is made
         """
         if self.path == "/on":
-            led.on()
+            GPIO.output(LED_PIN, GPIO.HIGH)
+            led_state = True
             self.send_response(200)
             self.end_headers()
             mqttc.publish(MQTT_STATE, payload=MQTT_ON, retain=True)
         elif self.path == "/off":
-            led.off()
+            GPIO.output(LED_PIN, GPIO.LOW)
+            led_state = False
             self.send_response(200)
             self.end_headers()
             mqttc.publish(MQTT_STATE, payload=MQTT_OFF, retain=True)
         elif self.path == "/toggle":
-            led.toggle()
+            if led_state:
+                GPIO.output(LED_PIN, GPIO.LOW)
+                led_state = False
+            else:
+                GPIO.output(LED_PIN, GPIO.HIGH)
+                led_state = True
             self.send_response(200)
             self.end_headers()
-            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF), retain=True)
+            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led_state else MQTT_OFF), retain=True)
         elif self.path == "/status":
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
-            json_str = json.dumps({"led": led.is_lit})
+            json_str = json.dumps({"led": led_state})
             self.wfile.write(json_str.encode(encoding='utf_8'))
 
 class HTTPThread(threading.Thread):
@@ -87,16 +104,24 @@ class ButtonThread(threading.Thread):
     Thread that handles button presses
     """
     def run(self):
+        global led_state
         """
         Infinite loop waiting on button presses
         """
         print("Starting button thread")
         while True:
-            button.wait_for_press()
+            while GPIO.input(BUTTON_PIN) == GPIO.HIGH:
+                time.sleep(0.01)  # wait 10 ms to give CPU chance to do other things
             print("Button Pressed")
-            led.toggle()
-            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led.is_lit else MQTT_OFF), retain=True)
-            button.wait_for_release()
+            if led_state:
+                GPIO.output(LED_PIN, GPIO.LOW)
+                led_state = False
+            else:
+                GPIO.output(LED_PIN, GPIO.HIGH)
+                led_state = True
+            mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led_state else MQTT_OFF), retain=True)
+            while GPIO.input(BUTTON_PIN) == GPIO.LOW:
+                time.sleep(0.01)  # wait 10 ms to give CPU chance to do other things
             print("Button Released")
         print("Exiting button thread")
 
@@ -120,14 +145,17 @@ def mqtt_on_message(client, userdata, msg):
     """
     Handle commands coming in through MQTT
     """
+    global led_state
     # pylint: disable=unused-argument
     print("MQTT Command Received")
     print("MQTT Command:" +msg.topic+" "+msg.payload.decode())
     if msg.payload.decode() == MQTT_ON:
-        led.on()
+        GPIO.output(LED_PIN, GPIO.HIGH)
+        led_state = True
         mqttc.publish(MQTT_STATE, payload=MQTT_ON, retain=True)
     elif msg.payload.decode() == MQTT_OFF:
-        led.off()
+        GPIO.output(LED_PIN, GPIO.LOW)
+        led_state = False
         mqttc.publish(MQTT_STATE, payload=MQTT_OFF, retain=True)
 
 mqttc.on_connect = mqtt_on_connect
