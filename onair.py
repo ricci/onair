@@ -11,7 +11,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import atexit
 import threading
-import RPi.GPIO as GPIO
+import R64.GPIO as GPIO
 import paho.mqtt.client as mqtt
 import time
 
@@ -23,10 +23,19 @@ MQTT_AVAILABLE = "{}/state/available".format(MQTT_ROOT)
 MQTT_ON = "ON"
 MQTT_OFF = "OFF"
 
-LED_PIN = 27
-BUTTON_PIN = 4
+# The RockPro version of the library seems to return strings not ints - is this
+# intended behavior?
+HIGH = "1"
+LOW = "0"
 
-GPIO.setmode(GPIO.BCM)
+#LED_PIN = 27
+#BUTTON_PIN = 4
+LED_PIN = 16
+BUTTON_PIN = 13
+
+GPIO.setmode(GPIO.BOARD)
+GPIO.setrock('ROCKPRO64')
+GPIO.setwarnings(False);
 
 GPIO.setup(LED_PIN, GPIO.OUT)
 GPIO.output(LED_PIN, GPIO.LOW)
@@ -110,7 +119,7 @@ class ButtonThread(threading.Thread):
         """
         print("Starting button thread")
         while True:
-            while GPIO.input(BUTTON_PIN) == GPIO.HIGH:
+            while GPIO.input(BUTTON_PIN) == HIGH:
                 time.sleep(0.01)  # wait 10 ms to give CPU chance to do other things
             print("Button Pressed")
             if led_state:
@@ -120,7 +129,7 @@ class ButtonThread(threading.Thread):
                 GPIO.output(LED_PIN, GPIO.HIGH)
                 led_state = True
             mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led_state else MQTT_OFF), retain=True)
-            while GPIO.input(BUTTON_PIN) == GPIO.LOW:
+            while GPIO.input(BUTTON_PIN) == LOW:
                 time.sleep(0.01)  # wait 10 ms to give CPU chance to do other things
             print("Button Released")
         print("Exiting button thread")
