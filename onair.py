@@ -22,6 +22,7 @@ MQTT_AVAILABLE = "{}/state/available".format(MQTT_ROOT)
 
 MQTT_ON = "ON"
 MQTT_OFF = "OFF"
+MQTT_TOGGLE = "TOGGLE"
 
 # The RockPro version of the library seems to return strings not ints - is this
 # intended behavior?
@@ -166,6 +167,14 @@ def mqtt_on_message(client, userdata, msg):
         GPIO.output(LED_PIN, GPIO.LOW)
         led_state = False
         mqttc.publish(MQTT_STATE, payload=MQTT_OFF, retain=True)
+    elif msg.payload.decode() == MQTT_TOGGLE:
+        if led_state:
+            GPIO.output(LED_PIN, GPIO.LOW)
+            led_state = False
+        else:
+            GPIO.output(LED_PIN, GPIO.HIGH)
+            led_state = True
+        mqttc.publish(MQTT_STATE, payload=(MQTT_ON if led_state else MQTT_OFF), retain=True)
 
 mqttc.on_connect = mqtt_on_connect
 mqttc.on_message = mqtt_on_message
