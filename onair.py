@@ -22,7 +22,7 @@ MQTT_AVAILABLE = "{}/state/available".format(MQTT_ROOT)
 MQTT_ON = "ON"
 MQTT_OFF = "OFF"
 
-led = LED(17)
+led = LED(27)
 led.off()
 
 button = Button(4)#,bounce_time=0.1)
